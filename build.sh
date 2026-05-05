@@ -11,8 +11,8 @@ export ARCH=arm64
 export LLVM=1
 export LLVM_IAS=1
 export LLVM_VER=12.0.1
-export KBUILD_BUILD_USER="CarryingThePriceOf"
-export KBUILD_BUILD_HOST="FallingInLoveToSomeoneYouCanNeverHave"
+export KBUILD_BUILD_USER="GrayRavens-Zenithed"
+export KBUILD_BUILD_HOST="ZenithOnTop"
 
 # Check and download Clang if not present
 CLANG_PATH="${HOME}/work/android-kernel/toolchain/clang-${LLVM_VER}"
