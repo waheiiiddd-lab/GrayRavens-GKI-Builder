@@ -18,7 +18,7 @@ on:
       kernel_name:
         description: 'Kernel zip name (without .zip)'
         type: string
-        default: GrayRavens-Zenithed
+        default: GrayRavens-Zenithed-V5.9-Premura
 
 jobs:
   build:
@@ -53,27 +53,41 @@ jobs:
         run: |
           if [ "${{ inputs.ksu_variant }}" = "KOWSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/KOWX712/KernelSU/main/kernel/setup.sh" | bash -s master
-            sed -i '$a CONFIG_KSU=y\nCONFIG_KSU_MANUAL_SU=n\nCONFIG_KSU_SUSFS=n' arch/arm64/configs/gki_defconfig
+            printf '\nCONFIG_KSU=y\nCONFIG_KSU_MANUAL_SU=n\nCONFIG_KSU_SUSFS=n\n' \
+              >> arch/arm64/configs/gki_defconfig
           else
-            # KSUN and KSUN_ALL_MANAGERS share the same KernelSU-Next dev-susfs base.
             curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/dev-susfs/kernel/setup.sh" | bash -s dev-susfs
-            sed -i '$a CONFIG_KSU=y\nCONFIG_KSU_MANUAL_SU=n\nCONFIG_KSU_SUSFS=y' arch/arm64/configs/gki_defconfig
+            printf '\nCONFIG_KSU=y\nCONFIG_KSU_MANUAL_SU=n\nCONFIG_KSU_SUSFS=y\n' \
+              >> arch/arm64/configs/gki_defconfig
           fi
+
+      - name: Verify KSU integration
+        if: inputs.ksu_variant != 'VANILLA'
+        working-directory: kernel
+        run: |
+          echo "=== KSU directory check ==="
+          ls -la KernelSU* 2>/dev/null || echo "WARNING: No KernelSU dir found!"
+          echo "=== drivers/kernelsu check ==="
+          ls drivers/kernelsu/ 2>/dev/null || echo "WARNING: drivers/kernelsu missing!"
+          echo "=== Kconfig/Makefile hooks ==="
+          grep -r "kernelsu\|KSU" drivers/Makefile drivers/Kconfig 2>/dev/null || echo "WARNING: No KSU hooks in drivers!"
+          echo "=== gki_defconfig KSU entries ==="
+          grep "CONFIG_KSU" arch/arm64/configs/gki_defconfig || echo "WARNING: No KSU configs in gki_defconfig!"
 
       - name: Apply All Managers Support patch (KSUN_ALL_MANAGERS only)
         if: inputs.ksu_variant == 'KSUN_ALL_MANAGERS'
         working-directory: kernel
         run: |
-          echo "Patch All Managers Support..."
+          echo "Patching All Managers Support..."
           curl -LSs "https://raw.githubusercontent.com/XTENSEI/gki-builder/refs/heads/6.x/kernel-patches/ksu/ksun-add-more-managers-support.patch" \
             -o /tmp/ksun-add-more-managers-support.patch
           if [ -d KernelSU-Next ]; then
             cd KernelSU-Next
             echo "Current KernelSU-Next branch: $(git branch --show-current)"
-            cat kernel/Kbuild | grep MANAGER_LIST
+            grep MANAGER_LIST kernel/Kbuild || true
             patch -p1 < /tmp/ksun-add-more-managers-support.patch
             echo "Patch applied. New MANAGER_LIST:"
-            cat kernel/Kbuild | grep MANAGER_LIST
+            grep MANAGER_LIST kernel/Kbuild || true
           else
             echo "ERROR: KernelSU-Next directory not found!"
             exit 1
