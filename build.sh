@@ -9,6 +9,7 @@ trap 'echo "Build failed at line $LINENO. Exit code: $?" >&2' ERR
 export ARCH=arm64
 export LLVM=1
 export LLVM_IAS=1
+export PGO_INSTRUMENT=1
 export KBUILD_BUILD_USER="GrayRavens-Team"
 export KBUILD_BUILD_HOST="ZenithXHikari-KasumiXIyashi"
 
@@ -44,6 +45,8 @@ echo "Compiler string : $KBUILD_COMPILER_STRING"
 # -mtune=cortex-a55 : tune for little cores (handle most background work)
 # -w                : suppress warnings, keep log clean
 export KCFLAGS="-w -march=armv8.2-a -mtune=cortex-a55"
+export KBUILD_CFLAGS += -fno-reorder-blocks-and-partition
+export KBUILD_LDFLAGS += --emit-relocs
 
 # ── NTSYNC SELinux policy injection ─────────────────────────────────────────
 RULES_FILE="drivers/kernelsu/selinux/rules.c"
