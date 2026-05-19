@@ -10,7 +10,7 @@ export ARCH=arm64
 export LLVM=1
 export LLVM_IAS=1
 export KBUILD_BUILD_USER="GrayRavens-Team"
-export KBUILD_BUILD_HOST="ZenithXHikari-KasumiThermal-IyashiThrottle"
+export KBUILD_BUILD_HOST="ZenithXHikari-KasumiXIyashi"
 
 # ── Clang toolchain ──────────────────────────────────────────────────────────
 if [ -z "$CLANG_PATH" ]; then
@@ -18,12 +18,31 @@ if [ -z "$CLANG_PATH" ]; then
     exit 1
 fi
 
+export PATH="${CLANG_PATH}/bin:${PATH}"
+
 echo "Using toolchain : ${CLANG_VARIANT:-unknown}"
 echo "Toolchain path  : $CLANG_PATH"
 echo "Clang version   : $("$CLANG_PATH/bin/clang" --version | head -n1)"
-export PATH="${CLANG_PATH}/bin:${PATH}"
+
+# ── Compiler string (shown in kernel version) ────────────────────────────────
+case "${CLANG_VARIANT}" in
+    NEUTRON_19)
+        export KBUILD_COMPILER_STRING="Neutron Clang 19.0.0 +PGO +BOLT +Polly +ThinLTO +O3"
+        ;;
+    ZYC_12)
+        export KBUILD_COMPILER_STRING="ZYC Clang 12.0.0 +ThinLTO +O3"
+        ;;
+    AOSP_12)
+        export KBUILD_COMPILER_STRING="AOSP Clang r445002 (LLVM 12.0.5)"
+        ;;
+esac
+
+echo "Compiler string : $KBUILD_COMPILER_STRING"
 
 # ── KCFLAGS ──────────────────────────────────────────────────────────────────
+# -march=armv8.2-a  : safe baseline for all SD/Dimensity chips on Android 12
+# -mtune=cortex-a55 : tune for little cores (handle most background work)
+# -w                : suppress warnings, keep log clean
 export KCFLAGS="-w -march=armv8.2-a -mtune=cortex-a55"
 
 # ── NTSYNC SELinux policy injection ─────────────────────────────────────────
@@ -53,7 +72,7 @@ fi
 echo "Generating GKI defconfig..."
 make O=out gki_defconfig
 
-# ── Configure LTO — ThinLTO ─────────────────────────────────────────────────
+# ── Configure ThinLTO ────────────────────────────────────────────────────────
 echo "Configuring ThinLTO..."
 scripts/config --file out/.config \
     -e LTO_CLANG \
