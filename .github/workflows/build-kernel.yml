@@ -12,11 +12,10 @@ on:
           - ALL
         default: KOWSU
       clang_variant:
-        description: 'Clang toolchain (ALL = NEUTRON_19 + ZYC_12 + AOSP_12)'
+        description: 'Clang toolchain (ALL = NEUTRON_19 + AOSP_12)'
         type: choice
         options:
           - NEUTRON_19
-          - ZYC_12
           - AOSP_12
           - ALL
         default: NEUTRON_19
@@ -47,7 +46,7 @@ jobs:
           fi
 
           if [ "${{ inputs.clang_variant }}" = "ALL" ]; then
-            echo 'clang_variants=["NEUTRON_19","ZYC_12","AOSP_12"]' >> $GITHUB_OUTPUT
+            echo 'clang_variants=["NEUTRON_19","AOSP_12"]' >> $GITHUB_OUTPUT
           else
             echo 'clang_variants=["${{ inputs.clang_variant }}"]' >> $GITHUB_OUTPUT
           fi
@@ -71,7 +70,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison flex build-essential libssl-dev libelf-dev \
             cpio kmod rsync zip patch curl ca-certificates \
-            python3 python3-pip python3-lxml git git-lfs wget
+            python3 python3-pip python3-lxml git wget
 
       # ── Neutron 19 ────────────────────────────────────────────────────────
       - name: Download Neutron Clang 19
@@ -84,26 +83,6 @@ jobs:
           ./antman -S=10032024
           ./antman --patch=glibc
           echo "Neutron Clang 19 ready."
-
-      # ── ZYC Clang 12 ─────────────────────────────────────────────────────
-      - name: Cache ZYC Clang 12
-        if: matrix.clang == 'ZYC_12'
-        id: cache-zyc-12
-        uses: actions/cache@v4
-        with:
-          path: ~/toolchain/zyc-clang-12
-          key: zyc-clang-12-x86_64
-
-      - name: Download ZYC Clang 12 (if not cached)
-        if: matrix.clang == 'ZYC_12' && steps.cache-zyc-12.outputs.cache-hit != 'true'
-        run: |
-          git lfs install
-          git clone --depth=1 -b 12 \
-            https://gitlab.com/clangsantoni/zyc_clang.git \
-            ~/toolchain/zyc-clang-12
-          cd ~/toolchain/zyc-clang-12
-          git lfs pull
-          echo "ZYC Clang 12 ready."
 
       # ── AOSP Clang r445002 ────────────────────────────────────────────────
       - name: Cache AOSP Clang r445002
@@ -127,7 +106,6 @@ jobs:
         run: |
           case "${{ matrix.clang }}" in
             NEUTRON_19) echo "CLANG_PATH=$HOME/toolchain/neutron-clang" >> $GITHUB_ENV ;;
-            ZYC_12)     echo "CLANG_PATH=$HOME/toolchain/zyc-clang-12" >> $GITHUB_ENV ;;
             AOSP_12)    echo "CLANG_PATH=$HOME/toolchain/aosp-clang-r445002" >> $GITHUB_ENV ;;
           esac
 
