@@ -3,30 +3,30 @@ on:
   workflow_dispatch:
     inputs:
       ksu_variant:
-        description: 'KernelSU variant (ALL = KOWSU + KSUN + VANILLA)'
+        description: 'KernelSU variant (ALL = KWS + KSUN + VNL)'
         type: choice
         options:
-          - KOWSU
+          - KWS
           - KSUN
-          - VANILLA
+          - VNL
           - ALL
-        default: KOWSU
+        default: KWS
       clang_variant:
-        description: 'Clang toolchain (ALL = NEUTRON_19 + AOSP_12)'
+        description: 'Clang toolchain (ALL = NEUTRON-19 + CLANG-12)'
         type: choice
         options:
-          - NEUTRON_19
-          - AOSP_12
+          - NEUTRON-19
+          - CLANG-12
           - ALL
-        default: NEUTRON_19
+        default: NEUTRON-19
+      kernel_name:
+        description: 'Kernel base name'
+        type: string
+        default: GrayRavens-Zenithed-V6.0
       kernel_ref:
         description: 'kernel branch / tag / SHA to build'
         type: string
         default: android12-5.10
-      kernel_name:
-        description: 'Kernel zip name (without .zip)'
-        type: string
-        default: GrayRavens-Zenithed
 
 jobs:
   # ── Resolve matrix from inputs ─────────────────────────────────────────────
@@ -40,13 +40,13 @@ jobs:
         id: resolve
         run: |
           if [ "${{ inputs.ksu_variant }}" = "ALL" ]; then
-            echo 'ksu_variants=["KOWSU","KSUN","VANILLA"]' >> $GITHUB_OUTPUT
+            echo 'ksu_variants=["KWS","KSUN","VNL"]' >> $GITHUB_OUTPUT
           else
             echo 'ksu_variants=["${{ inputs.ksu_variant }}"]' >> $GITHUB_OUTPUT
           fi
 
           if [ "${{ inputs.clang_variant }}" = "ALL" ]; then
-            echo 'clang_variants=["NEUTRON_19","AOSP_12"]' >> $GITHUB_OUTPUT
+            echo 'clang_variants=["NEUTRON-19","CLANG-12"]' >> $GITHUB_OUTPUT
           else
             echo 'clang_variants=["${{ inputs.clang_variant }}"]' >> $GITHUB_OUTPUT
           fi
@@ -74,7 +74,7 @@ jobs:
 
       # ── Neutron 19 ────────────────────────────────────────────────────────
       - name: Download Neutron Clang 19
-        if: matrix.clang == 'NEUTRON_19'
+        if: matrix.clang == 'NEUTRON-19'
         run: |
           mkdir -p ~/toolchain/neutron-clang
           cd ~/toolchain/neutron-clang
@@ -85,7 +85,7 @@ jobs:
           echo "Neutron Clang 19 ready."
 
       - name: Verify Neutron Clang optimizations
-        if: matrix.clang == 'NEUTRON_19'
+        if: matrix.clang == 'NEUTRON-19'
         run: |
           echo "=== Clang binary BOLT check ==="
           readelf -S ~/toolchain/neutron-clang/bin/clang \
@@ -98,9 +98,9 @@ jobs:
             | grep -i "profdata\|pgo\|instrumented" | head -10 \
             || echo "No PGO strings found"
 
-      # ── AOSP Clang r416183b (LLVM 12.0.7) ────────────────────────────────
+      # ── AOSP Clang r416183b (LLVM 12.0.5) ────────────────────────────────
       - name: Cache AOSP Clang r416183b
-        if: matrix.clang == 'AOSP_12'
+        if: matrix.clang == 'CLANG-12'
         id: cache-aosp-12
         uses: actions/cache@v4
         with:
@@ -108,7 +108,7 @@ jobs:
           key: aosp-clang-r416183b-x86_64
 
       - name: Download AOSP Clang r416183b (if not cached)
-        if: matrix.clang == 'AOSP_12' && steps.cache-aosp-12.outputs.cache-hit != 'true'
+        if: matrix.clang == 'CLANG-12' && steps.cache-aosp-12.outputs.cache-hit != 'true'
         run: |
           git clone --depth=1 \
             https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git \
@@ -119,8 +119,8 @@ jobs:
       - name: Export CLANG_PATH
         run: |
           case "${{ matrix.clang }}" in
-            NEUTRON_19) echo "CLANG_PATH=$HOME/toolchain/neutron-clang" >> $GITHUB_ENV ;;
-            AOSP_12)    echo "CLANG_PATH=$HOME/toolchain/aosp-clang-r416183b" >> $GITHUB_ENV ;;
+            NEUTRON-19) echo "CLANG_PATH=$HOME/toolchain/neutron-clang" >> $GITHUB_ENV ;;
+            CLANG-12)   echo "CLANG_PATH=$HOME/toolchain/aosp-clang-r416183b" >> $GITHUB_ENV ;;
           esac
 
       # ── Kernel source ─────────────────────────────────────────────────────
@@ -131,10 +131,10 @@ jobs:
 
       # ── KSU setup ─────────────────────────────────────────────────────────
       - name: Apply KernelSU (${{ matrix.ksu }})
-        if: matrix.ksu != 'VANILLA'
+        if: matrix.ksu != 'VNL'
         working-directory: kernel
         run: |
-          if [ "${{ matrix.ksu }}" = "KOWSU" ]; then
+          if [ "${{ matrix.ksu }}" = "KWS" ]; then
             curl -LSs "https://raw.githubusercontent.com/KOWX712/KernelSU/main/kernel/setup.sh" | bash -s master
             printf '\nCONFIG_KSU=y\nCONFIG_KSU_MANUAL_SU=n\nCONFIG_KSU_SUSFS=n\n' \
               >> arch/arm64/configs/gki_defconfig
@@ -145,7 +145,7 @@ jobs:
           fi
 
       - name: Verify KSU integration (${{ matrix.ksu }})
-        if: matrix.ksu != 'VANILLA'
+        if: matrix.ksu != 'VNL'
         working-directory: kernel
         run: |
           echo "=== KSU directory check ==="
@@ -169,6 +169,15 @@ jobs:
           cp -r "$susfs/50_add_susfs_in_gki-android12-5.10.patch" .
           patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
 
+      # ── Inject LOCALVERSION ───────────────────────────────────────────────
+      - name: Set LOCALVERSION in gki_defconfig
+        working-directory: kernel
+        run: |
+          LOCALVER="-${{ inputs.kernel_name }}-${{ matrix.ksu }}"
+          printf '\nCONFIG_LOCALVERSION="%s"\n' "$LOCALVER" \
+            >> arch/arm64/configs/gki_defconfig
+          echo "LOCALVERSION set to: $LOCALVER"
+
       # ── Build ─────────────────────────────────────────────────────────────
       - name: Run build.sh
         working-directory: kernel
@@ -183,10 +192,12 @@ jobs:
       # ── Package ───────────────────────────────────────────────────────────
       - name: Package with AnyKernel3
         run: |
+          ZIP_NAME="${{ inputs.kernel_name }}-${{ matrix.ksu }}-${{ matrix.clang }}"
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
           git clone --depth=1 https://github.com/XTENSEI/GrayRavens-anykernel anykernel
           cp kernel/out/arch/arm64/boot/Image anykernel/Image
           cd anykernel
-          zip -r9 "../${{ inputs.kernel_name }}-${{ matrix.ksu }}-${{ matrix.clang }}.zip" . \
+          zip -r9 "../${ZIP_NAME}.zip" . \
             --exclude="*.git*" --exclude="README.md" --exclude="*.placeholder"
 
       - name: Upload kernel image
@@ -199,6 +210,6 @@ jobs:
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.kernel_name }}-${{ matrix.ksu }}-${{ matrix.clang }}
-          path: ${{ inputs.kernel_name }}-${{ matrix.ksu }}-${{ matrix.clang }}.zip
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}.zip
           if-no-files-found: error
