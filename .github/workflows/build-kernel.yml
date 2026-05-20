@@ -110,11 +110,10 @@ jobs:
       - name: Download AOSP Clang r416183b (if not cached)
         if: matrix.clang == 'AOSP_12' && steps.cache-aosp-12.outputs.cache-hit != 'true'
         run: |
-          mkdir -p ~/toolchain/aosp-clang-r416183b
-          curl -L \
-            "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master-kernel-build-2021/clang-r416183b.tar.gz" \
-            | tar -xz -C ~/toolchain/aosp-clang-r416183b
-          echo "AOSP Clang r416183b (LLVM 12.0.7) ready."
+          git clone --depth=1 \
+            https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git \
+            ~/toolchain/aosp-clang-r416183b
+          echo "AOSP Clang r416183b (LLVM 12.0.5) ready."
 
       # ── Export CLANG_PATH ─────────────────────────────────────────────────
       - name: Export CLANG_PATH
