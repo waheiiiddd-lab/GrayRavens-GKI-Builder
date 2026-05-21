@@ -61,6 +61,11 @@ else
     echo "No KernelSU rules.c found — skipping NTSYNC SELinux injection."
 fi
 
+# ── Patch mkcompile_h to force compiler string ───────────────────────────────
+# The kernel reads compiler string from scripts/mkcompile_h directly
+echo "Patching mkcompile_h to override compiler string..."
+sed -i "s|LINUX_COMPILER=.*|LINUX_COMPILER=\"${COMPILER_STRING}\"|g" scripts/mkcompile_h 2>/dev/null || true
+
 # ── Generate kernel config ───────────────────────────────────────────────────
 echo "Generating GKI defconfig..."
 make O=out gki_defconfig
