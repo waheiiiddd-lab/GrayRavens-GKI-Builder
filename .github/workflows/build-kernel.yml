@@ -12,10 +12,11 @@ on:
           - ALL
         default: KWS
       clang_variant:
-        description: 'Clang toolchain (ALL = NEUTRON-19 + CLANG-12)'
+        description: 'Clang toolchain (ALL = NEUTRON-19 + YUKI-18 + CLANG-12)'
         type: choice
         options:
           - NEUTRON-19
+          - YUKI-18
           - CLANG-12
           - ALL
         default: NEUTRON-19
@@ -46,7 +47,7 @@ jobs:
           fi
 
           if [ "${{ inputs.clang_variant }}" = "ALL" ]; then
-            echo 'clang_variants=["NEUTRON-19","CLANG-12"]' >> $GITHUB_OUTPUT
+            echo 'clang_variants=["NEUTRON-19","YUKI-18","CLANG-12"]' >> $GITHUB_OUTPUT
           else
             echo 'clang_variants=["${{ inputs.clang_variant }}"]' >> $GITHUB_OUTPUT
           fi
@@ -98,6 +99,23 @@ jobs:
             | grep -i "profdata\|pgo\|instrumented" | head -10 \
             || echo "No PGO strings found"
 
+      # ── Yuki Clang 18 ─────────────────────────────────────────────────────
+      - name: Cache Yuki Clang 19
+        if: matrix.clang == 'YUKI-18'
+        id: cache-yuki-18
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchain/yuki-clang-19
+          key: yuki-clang-19.0.0-x86_64
+
+      - name: Download Yuki Clang 19 (if not cached)
+        if: matrix.clang == 'YUKI-18' && steps.cache-yuki-18.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth=1 -b 19.0.0git \
+            https://bitbucket.org/thexperienceproject/yuki-clang.git \
+            ~/toolchain/yuki-clang-19
+          echo "Yuki Clang 19.0.0git ready."
+
       # ── AOSP Clang r416183b (LLVM 12.0.5) ────────────────────────────────
       - name: Cache AOSP Clang r416183b
         if: matrix.clang == 'CLANG-12'
@@ -120,6 +138,7 @@ jobs:
         run: |
           case "${{ matrix.clang }}" in
             NEUTRON-19) echo "CLANG_PATH=$HOME/toolchain/neutron-clang" >> $GITHUB_ENV ;;
+            YUKI-18)    echo "CLANG_PATH=$HOME/toolchain/yuki-clang-19" >> $GITHUB_ENV ;;
             CLANG-12)   echo "CLANG_PATH=$HOME/toolchain/aosp-clang-r416183b" >> $GITHUB_ENV ;;
           esac
 
