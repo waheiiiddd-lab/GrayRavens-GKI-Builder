@@ -59,31 +59,11 @@ if [[ "${CLANG_VARIANT}" == *"19"* ]]; then
             rm -f "$MLGO_DIR/inlining.zip"
             echo "Inlining model v1.2 ready."
         else
-            echo "WARNING: Inlining v1.2 download failed."
+            echo "WARNING: Inlining v1.2 download failed. Disabling MLGO."
             rm -rf "$MLGO_DIR/inlining"
         fi
     else
         echo "Inlining model already present, skipping."
-    fi
-
-    echo "Downloading MLGO regalloc model (Pre-compiled ARM64)..."
-    if [ ! -f "$MLGO_DIR/regalloc/saved_model.pb" ]; then
-        mkdir -p "$MLGO_DIR/regalloc"
-        REGALLOC_URL="https://github.com/GengKapak/MLGO-Models/releases/download/main/regalloc-linux-arm64.tar.gz"
-        
-        echo "Fetching from: $REGALLOC_URL"
-        if curl -LSs --head --request GET "$REGALLOC_URL" | grep -q "200\|302"; then
-            curl -LSs "$REGALLOC_URL" | tar -xz -C "$MLGO_DIR/regalloc" --strip-components=1 2>/dev/null || true
-        fi
-
-        if [ ! -f "$MLGO_DIR/regalloc/saved_model.pb" ]; then
-            echo "WARNING: Regalloc model could not be verified. Disabling Regalloc pass."
-            rm -rf "$MLGO_DIR/regalloc"
-        else
-            echo "Regalloc model ready."
-        fi
-    else
-        echo "Regalloc model already present, skipping."
     fi
 
     # ── MLGO KCFLAGS injection ────────────────────────────────────────────────
@@ -93,13 +73,6 @@ if [[ "${CLANG_VARIANT}" == *"19"* ]]; then
             -mllvm -enable-ml-inliner=release \
             -mllvm -ml-inliner-model-under-training-log=/dev/null \
             -mllvm -inliner-model-import-path=${MLGO_DIR}/inlining"
-    fi
-
-    if [ -d "$MLGO_DIR/regalloc" ] && [ -f "$MLGO_DIR/regalloc/saved_model.pb" ]; then
-        echo "Enabling MLGO regalloc..."
-        export KCFLAGS="${KCFLAGS} \
-            -mllvm -regalloc-enable-advisor=release \
-            -mllvm -regalloc-model-import-path=${MLGO_DIR}/regalloc"
     fi
 else
     echo "Clang 12 detected: Bypassing MLGO injection for engine stability."
