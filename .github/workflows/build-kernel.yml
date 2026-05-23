@@ -12,13 +12,13 @@ on:
           - ALL
         default: KWS
       clang_variant:
-        description: 'Clang toolchain (ALL = GRAYRAVEN-19 + GRAYRAVEN-12)'
+        description: 'Clang toolchain (ALL = NEUTRON-19 + CLANG-12)'
         type: choice
         options:
-          - GRAYRAVEN-19
-          - GRAYRAVEN-12
+          - NEUTRON-19
+          - CLANG-12
           - ALL
-        default: GRAYRAVEN-19
+        default: NEUTRON-19
       kernel_name:
         description: 'Kernel base name'
         type: string
@@ -46,7 +46,7 @@ jobs:
           fi
 
           if [ "${{ inputs.clang_variant }}" = "ALL" ]; then
-            echo 'clang_variants=["GRAYRAVEN-19","GRAYRAVEN-12"]' >> $GITHUB_OUTPUT
+            echo 'clang_variants=["NEUTRON-19","CLANG-12"]' >> $GITHUB_OUTPUT
           else
             echo 'clang_variants=["${{ inputs.clang_variant }}"]' >> $GITHUB_OUTPUT
           fi
@@ -70,48 +70,57 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison flex build-essential libssl-dev libelf-dev \
             cpio kmod rsync zip patch curl ca-certificates \
-            python3 python3-pip python3-lxml git wget binutils unzip
+            python3 python3-pip python3-lxml git wget binutils
 
-      # ── GrayRavens Clang 19 ───────────────────────────────────────────────
-      - name: Cache GrayRavens Clang 19
-        if: matrix.clang == 'GRAYRAVEN-19'
-        id: cache-grayraven-19
+      # ── Neutron 19 ────────────────────────────────────────────────────────
+      - name: Download Neutron Clang 19
+        if: matrix.clang == 'NEUTRON-19'
+        run: |
+          mkdir -p ~/toolchain/neutron-clang
+          cd ~/toolchain/neutron-clang
+          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
+          chmod +x antman
+          ./antman -S=10032024
+          ./antman --patch=glibc
+          echo "Neutron Clang 19 ready."
+
+      - name: Verify Neutron Clang optimizations
+        if: matrix.clang == 'NEUTRON-19'
+        run: |
+          echo "=== Clang binary BOLT check ==="
+          readelf -S ~/toolchain/neutron-clang/bin/clang \
+            | grep -i "bolt\|llvm_bb" || echo "No BOLT sections found"
+          echo "=== Clang build comment ==="
+          readelf -p .comment ~/toolchain/neutron-clang/bin/clang 2>/dev/null \
+            | head -20 || echo "No .comment section"
+          echo "=== PGO check ==="
+          strings ~/toolchain/neutron-clang/bin/clang \
+            | grep -i "profdata\|pgo\|instrumented" | head -10 \
+            || echo "No PGO strings found"
+
+      # ── AOSP Clang r416183b (LLVM 12.0.5) ────────────────────────────────
+      - name: Cache AOSP Clang r416183b
+        if: matrix.clang == 'CLANG-12'
+        id: cache-aosp-12
         uses: actions/cache@v4
         with:
-          path: ~/toolchain/grayraven-clang-19
-          key: grayraven-clang-19-x86_64
+          path: ~/toolchain/aosp-clang-r416183b
+          key: aosp-clang-r416183b-x86_64
 
-      - name: Download GrayRavens Clang 19 (if not cached)
-        if: matrix.clang == 'GRAYRAVEN-19' && steps.cache-grayraven-19.outputs.cache-hit != 'true'
+      - name: Download AOSP Clang r416183b (if not cached)
+        if: matrix.clang == 'CLANG-12' && steps.cache-aosp-12.outputs.cache-hit != 'true'
         run: |
-          git clone --depth=1 -b 19 \
-            https://github.com/XTENSEI/GrayRavens-Clang.git \
-            ~/toolchain/grayraven-clang-19
-          echo "GrayRavens Clang 19 ready."
-
-      # ── GrayRavens Clang 12 ───────────────────────────────────────────────
-      - name: Cache GrayRavens Clang 12
-        if: matrix.clang == 'GRAYRAVEN-12'
-        id: cache-grayraven-12
-        uses: actions/cache@v4
-        with:
-          path: ~/toolchain/grayraven-clang-12
-          key: grayraven-clang-12-x86_64
-
-      - name: Download GrayRavens Clang 12 (if not cached)
-        if: matrix.clang == 'GRAYRAVEN-12' && steps.cache-grayraven-12.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth=1 -b 12 \
-            https://github.com/XTENSEI/GrayRavens-Clang.git \
-            ~/toolchain/grayraven-clang-12
-          echo "GrayRavens Clang 12 ready."
+          git clone --depth=1 \
+            https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git \
+            ~/toolchain/aosp-clang-r416183b
+          echo "AOSP Clang r416183b (LLVM 12.0.5) ready."
 
       # ── Export CLANG_PATH ─────────────────────────────────────────────────
       - name: Export CLANG_PATH
         run: |
           case "${{ matrix.clang }}" in
-            GRAYRAVEN-19) echo "CLANG_PATH=$HOME/toolchain/grayraven-clang-19" >> $GITHUB_ENV ;;
-            GRAYRAVEN-12) echo "CLANG_PATH=$HOME/toolchain/grayraven-clang-12" >> $GITHUB_ENV ;;
+            NEUTRON-19) echo "CLANG_PATH=$HOME/toolchain/neutron-clang" >> $GITHUB_ENV ;;
+            CLANG-12)   echo "CLANG_PATH=$HOME/toolchain/aosp-clang-r416183b" >> $GITHUB_ENV ;;
           esac
 
       # ── Kernel source ─────────────────────────────────────────────────────
