@@ -42,10 +42,7 @@ else
 fi
 
 # ── KCFLAGS ──────────────────────────────────────────────────────────────────
-# NOTE: -O3 enables aggressive inlining, loop unrolling, and vectorization.
-# If you get random panics/bootloops, a vendor driver likely has UB.
-# Fix: add CFLAGS_<driver>.o := -O2 in the offending driver's Makefile.
-export KCFLAGS="-w -O3 -march=armv8.2-a+crypto+fp16+dotprod -mtune=cortex-a55 \
+export KCFLAGS="-w -march=armv8.2-a+crypto+fp16+dotprod -mtune=cortex-a55 \
   -fno-semantic-interposition \
   ${POLLY_FLAGS}"
 
