@@ -42,7 +42,9 @@ else
 fi
 
 # ── KCFLAGS ──────────────────────────────────────────────────────────────────
-export KCFLAGS="-w -march=armv8.2-a -mtune=cortex-a55 ${POLLY_FLAGS}"
+export KCFLAGS="-w -march=armv8.2-a+crypto+fp16+dotprod -mtune=cortex-a55 \
+  -fno-semantic-interposition \
+  ${POLLY_FLAGS}"
 
 # ── NTSYNC SELinux policy injection ─────────────────────────────────────────
 RULES_FILE="drivers/kernelsu/selinux/rules.c"
