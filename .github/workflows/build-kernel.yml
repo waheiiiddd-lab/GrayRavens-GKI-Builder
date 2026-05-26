@@ -1,4 +1,5 @@
 name: Build kernel
+
 on:
   workflow_dispatch:
     inputs:
@@ -74,7 +75,7 @@ jobs:
             cpio kmod rsync zip patch curl ca-certificates \
             python3 python3-pip python3-lxml git wget binutils zstd
 
-      # ── Yuki Clang 22 ─────────────────────────────────────────────────────
+      # ── Yuki Clang 22 ────────────────────────────────────────────────────
       - name: Download Yuki Clang 22
         if: matrix.clang == 'YUKI-22'
         run: |
@@ -85,18 +86,16 @@ jobs:
           rm -f yuki-clang-+bolt-20251211.tar.zst
           echo "Yuki Clang 22 ready."
 
-      # ── AOSP Clang r536225 (LLVM 19 Max Optimized) ────────────────────────
-      - name: Download AOSP Clang 19 Max Optimized
+      # ── AOSP Clang r536225 (clang 19 +pgo +bolt +lto +mlgo) ─────────────
+      - name: Download AOSP Clang 19 (crDroid mirror)
         if: matrix.clang == 'AOSP-19-MAX'
         run: |
-          mkdir -p ~/toolchain/aosp-r536225
-          cd ~/toolchain/aosp-r536225
-          curl -LO "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz"
-          tar -xzf clang-r536225.tar.gz
-          rm -f clang-r536225.tar.gz
-          echo "AOSP Optimized Clang 19 Ready."
+          git clone --depth=1 \
+            https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225.git \
+            ~/toolchain/aosp-r536225
+          echo "AOSP Clang r536225 ready."
 
-      # ── Neutron 19 ────────────────────────────────────────────────────────
+      # ── Neutron 19 ───────────────────────────────────────────────────────
       - name: Download Neutron Clang 19
         if: matrix.clang == 'NEUTRON-19'
         run: |
@@ -108,7 +107,7 @@ jobs:
           ./antman --patch=glibc
           echo "Neutron Clang 19 ready."
 
-      # ── AOSP Clang r416183b (LLVM 12.0.5) ────────────────────────────────
+      # ── AOSP Clang r416183b (LLVM 12.0.5) ───────────────────────────────
       - name: Cache AOSP Clang r416183b
         if: matrix.clang == 'CLANG-12'
         id: cache-aosp-12
@@ -125,37 +124,38 @@ jobs:
             ~/toolchain/aosp-clang-r416183b
           echo "AOSP Clang r416183b (LLVM 12.0.5) ready."
 
-      # ── Verify Selected Clang Optimizations ────────────────────────────────
+      # ── Verify Selected Clang ────────────────────────────────────────────
       - name: Run Clang Audit Verification
         run: |
           case "${{ matrix.clang }}" in
-            YUKI-22)     TC_PATH="$HOME/toolchain/yuki-clang/bin/clang" ;;
-            AOSP-19-MAX) TC_PATH="$HOME/toolchain/aosp-r536225/bin/clang" ;;
-            NEUTRON-19)  TC_PATH="$HOME/toolchain/neutron-clang/bin/clang" ;;
-            CLANG-12)    TC_PATH="$HOME/toolchain/aosp-clang-r416183b/bin/clang" ;;
+            YUKI-22)    TC_PATH="$HOME/toolchain/yuki-clang/bin/clang" ;;
+            AOSP-19-MAX)TC_PATH="$HOME/toolchain/aosp-r536225/bin/clang" ;;
+            NEUTRON-19) TC_PATH="$HOME/toolchain/neutron-clang/bin/clang" ;;
+            CLANG-12)   TC_PATH="$HOME/toolchain/aosp-clang-r416183b/bin/clang" ;;
           esac
+
           echo "=== Auditing: ${{ matrix.clang }} ==="
           $TC_PATH --version | head -n 2 || true
           readelf -S $TC_PATH | grep -iE "bolt|llvm_bb" || echo "No BOLT layout found"
           strings $TC_PATH | grep -iE "regalloc-model|inline-model|mlgo" | head -n 2 || echo "No MLGO models embedded"
 
-      # ── Export CLANG_PATH ─────────────────────────────────────────────────
+      # ── Export CLANG_PATH ────────────────────────────────────────────────
       - name: Export CLANG_PATH
         run: |
           case "${{ matrix.clang }}" in
-            YUKI-22)    echo "CLANG_PATH=$HOME/toolchain/yuki-clang" >> $GITHUB_ENV ;;
-            AOSP-19-MAX)echo "CLANG_PATH=$HOME/toolchain/aosp-r536225" >> $GITHUB_ENV ;;
-            NEUTRON-19) echo "CLANG_PATH=$HOME/toolchain/neutron-clang" >> $GITHUB_ENV ;;
+            YUKI-22)    echo "CLANG_PATH=$HOME/toolchain/yuki-clang"          >> $GITHUB_ENV ;;
+            AOSP-19-MAX)echo "CLANG_PATH=$HOME/toolchain/aosp-r536225"        >> $GITHUB_ENV ;;
+            NEUTRON-19) echo "CLANG_PATH=$HOME/toolchain/neutron-clang"       >> $GITHUB_ENV ;;
             CLANG-12)   echo "CLANG_PATH=$HOME/toolchain/aosp-clang-r416183b" >> $GITHUB_ENV ;;
           esac
 
-      # ── Kernel source ─────────────────────────────────────────────────────
+      # ── Kernel source ────────────────────────────────────────────────────
       - name: Shallow-clone kernel source
         run: |
           git clone --depth=1 --branch "${{ inputs.kernel_ref }}" \
             https://github.com/XTENSEI/kernel_common_5.10 kernel
 
-      # ── KSU setup ─────────────────────────────────────────────────────────
+      # ── KSU setup ────────────────────────────────────────────────────────
       - name: Apply KernelSU (${{ matrix.ksu }})
         if: matrix.ksu != 'VNL'
         working-directory: kernel
@@ -195,7 +195,7 @@ jobs:
           cp -r "$susfs/50_add_susfs_in_gki-android12-5.10.patch" .
           patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
 
-      # ── Inject LOCALVERSION ───────────────────────────────────────────────
+      # ── Inject LOCALVERSION ──────────────────────────────────────────────
       - name: Set LOCALVERSION in gki_defconfig
         working-directory: kernel
         run: |
@@ -204,7 +204,7 @@ jobs:
             >> arch/arm64/configs/gki_defconfig
           echo "LOCALVERSION set to: $LOCALVER"
 
-      # ── Build ─────────────────────────────────────────────────────────────
+      # ── Build ────────────────────────────────────────────────────────────
       - name: Run build.sh
         working-directory: kernel
         env:
@@ -215,7 +215,7 @@ jobs:
           chmod +x build.sh
           ./build.sh
 
-      # ── Package ───────────────────────────────────────────────────────────
+      # ── Package ──────────────────────────────────────────────────────────
       - name: Package with AnyKernel3
         run: |
           ZIP_NAME="${{ inputs.kernel_name }}-${{ matrix.ksu }}-${{ matrix.clang }}"
