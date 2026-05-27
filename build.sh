@@ -12,7 +12,7 @@ export ARCH=arm64
 export LLVM=1
 export LLVM_IAS=1
 export KBUILD_BUILD_USER="GrayRavens-Team"
-export KBUILD_BUILD_HOST="Zenithed-AOSP"
+export KBUILD_BUILD_HOST="Zenithed-Experimental-Lovestruck"
 
 # ── Clang toolchain ──────────────────────────────────────────────────────────
 if [ -z "$CLANG_PATH" ]; then
