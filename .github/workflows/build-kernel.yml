@@ -25,7 +25,7 @@ on:
       kernel_name:
         description: 'Kernel base name'
         type: string
-        default: GrayRavens-Zenithed-V6.0
+        default: Zixine-Elysium-Inline-4.0
       kernel_ref:
         description: 'kernel branch / tag / SHA to build'
         type: string
