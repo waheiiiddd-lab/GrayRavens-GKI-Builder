@@ -74,13 +74,13 @@ echo "Generating GKI defconfig..."
 make O=out gki_defconfig
 
 # ── Configure ThinLTO ────────────────────────────────────────────────────────
-echo "Configuring ThinLTO..."
+echo "Disabling LTO for troubleshooting..."
 scripts/config --file out/.config \
-    -e LTO_CLANG \
-    -d LTO_NONE \
-    -e LTO_CLANG_THIN \
+    -d LTO_CLANG \
+    -e LTO_NONE \
+    -d LTO_CLANG_THIN \
     -d LTO_CLANG_FULL \
-    -e THINLTO
+    -d THINLTO
 
 # ── Build kernel image ───────────────────────────────────────────────────────
 echo "Building kernel image..."
