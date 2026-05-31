@@ -105,8 +105,11 @@ else
     echo "No ThinLTO cache found"
 fi
 
-echo "--- Polly flags used ---"
-echo "KCFLAGS: $KCFLAGS"
+# ── KCFLAGS ──────────────────────────────────────────────────────────────────
+export KCFLAGS="-w -march=armv8.2-a+crypto+fp16+dotprod -mtune=cortex-a55 \
+  -fno-semantic-interposition \
+  -fvisibility=default \
+  ${POLLY_FLAGS}"
 
 echo "--- Kernel compile.h ---"
 cat out/include/generated/compile.h 2>/dev/null || echo "compile.h not found"
