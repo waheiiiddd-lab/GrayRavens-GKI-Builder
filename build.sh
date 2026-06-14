@@ -114,7 +114,11 @@ cat out/include/generated/compile.h 2>/dev/null || echo "compile.h not found"
 echo "=== Verification complete ==="
 
 # ── KMI validation ───────────────────────────────────────────────────────────
-echo "Running KMI validation..."
-python3 KMI_function_symbols_test.py
+if [ "${KMI_SYMBOL_CHECK:-true}" = "true" ]; then
+    echo "Running KMI validation..."
+    python3 KMI_function_symbols_test.py
+else
+    echo "KMI symbol check disabled — skipping."
+fi
 
 echo "Build completed successfully! Toolchain: ${CLANG_VARIANT}"
